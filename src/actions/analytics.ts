@@ -53,7 +53,7 @@ export async function getDoctorAnalyticsData() {
       distinct: ['patientId'],
     })
 
-    const patientIds = appointments.map((a) => a.patientId)
+    const patientIds = appointments.map((a: { patientId: string }) => a.patientId)
 
     const patients = await prisma.patientProfile.findMany({
       where: {
