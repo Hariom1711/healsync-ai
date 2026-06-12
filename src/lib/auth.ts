@@ -86,6 +86,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           organizationId: user.organizationId,
+          tenantSubdomain: user.organization?.subdomain || null,
         }
       },
     }),
@@ -99,33 +100,46 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.role = (user as any).role
         token.organizationId = (user as any).organizationId
+        token.tenantSubdomain = (user as any).tenantSubdomain || null
+        token.needsOnboarding = (user as any).role === 'MASTER_ADMIN' || (user as any).role === 'ORG_ADMIN' ? false : true
       }
 
       // Populate onboarding status and check tenant data
       if (token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: {
-            role: true,
-            organizationId: true,
-            organization: { select: { subdomain: true } },
-            doctorProfile: { select: { id: true } },
-            patientProfile: { select: { id: true } },
-          },
-        })
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              role: true,
+              organizationId: true,
+              organization: { select: { subdomain: true } },
+              doctorProfile: { select: { id: true } },
+              patientProfile: { select: { id: true } },
+            },
+          })
 
-        if (dbUser) {
-          token.role = dbUser.role
-          token.organizationId = dbUser.organizationId
-          token.tenantSubdomain = dbUser.organization?.subdomain || null
-          
-          if (dbUser.role === 'MASTER_ADMIN' || dbUser.role === 'ORG_ADMIN') {
-            token.needsOnboarding = false
+          if (dbUser) {
+            token.role = dbUser.role
+            token.organizationId = dbUser.organizationId
+            token.tenantSubdomain = dbUser.organization?.subdomain || null
+            
+            if (dbUser.role === 'MASTER_ADMIN' || dbUser.role === 'ORG_ADMIN') {
+              token.needsOnboarding = false
+            } else {
+              token.needsOnboarding = !dbUser.doctorProfile && !dbUser.patientProfile
+            }
           } else {
-            token.needsOnboarding = !dbUser.doctorProfile && !dbUser.patientProfile
+            token.needsOnboarding = true
           }
-        } else {
-          token.needsOnboarding = true
+        } catch (dbErr) {
+          console.error("JWT Callback database check error, falling back to cached token values:", dbErr)
+          // If database is temporarily offline or connection times out, preserve existing token values
+          if (!token.role) {
+            token.role = 'PATIENT' // Safe fallback
+          }
+          if (token.role === 'MASTER_ADMIN' || token.role === 'ORG_ADMIN') {
+            token.needsOnboarding = false
+          }
         }
       }
 
