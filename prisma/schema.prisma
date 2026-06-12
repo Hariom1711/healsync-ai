@@ -7,8 +7,10 @@ generator client {
 }
 
 enum Role {
-  PATIENT
+  MASTER_ADMIN
+  ORG_ADMIN
   DOCTOR
+  PATIENT
 }
 
 enum AppointmentStatus {
@@ -38,6 +40,8 @@ model User {
   sessions       Session[]
   doctorProfile  DoctorProfile?
   patientProfile PatientProfile?
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }
 
 model DoctorProfile {
@@ -48,6 +52,7 @@ model DoctorProfile {
   bio             String?
   availability    Json? // e.g. { "monday": ["09:00-12:00", "14:00-17:00"] }
   avgCheckupSpeed Int             @default(15) // in minutes
+  consultationFee Float           @default(500.0)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   appointments    Appointment[]
@@ -148,3 +153,27 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model Organization {
+  id                   String        @id @default(uuid())
+  name                 String
+  subdomain            String        @unique
+  subscriptionStatus   String        @default("ACTIVE") // ACTIVE, SUSPENDED, UNPAID
+  subscriptionExpiresAt DateTime
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  users                User[]
+  payments             Payment[]
+}
+
+model Payment {
+  id                String       @id @default(uuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  amount            Float
+  status            String       // PAID, FAILED, PENDING
+  razorpayOrderId   String?      @unique
+  razorpayPaymentId String?      @unique
+  createdAt         DateTime     @default(now())
+}
+

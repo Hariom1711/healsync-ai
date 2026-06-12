@@ -5,6 +5,22 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
+function getSubdomainFromHost(host: string) {
+  const baseDomains = ['healsync-ai-six.vercel.app', 'localhost:3000']
+  let subdomain = ''
+
+  for (const base of baseDomains) {
+    if (host.endsWith(base)) {
+      const parts = host.replace(base, '')
+      if (parts && parts !== 'www.' && parts.endsWith('.')) {
+        subdomain = parts.slice(0, -1)
+        break
+      }
+    }
+  }
+  return subdomain
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -18,23 +34,48 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Please enter an email and password')
         }
 
-        // Find user by email
+        const host = req?.headers?.host || ''
+        const subdomain = getSubdomainFromHost(host)
+
+        // Find user by email including organization
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
+          include: { organization: true },
         })
 
-        if (!user || !user.password) {
-          throw new Error('No user found with this email and password')
+        if (!user) {
+          throw new Error('No user found with this email')
+        }
+
+        // 1. Master Admin verification
+        if (user.role === 'MASTER_ADMIN') {
+          if (subdomain) {
+            throw new Error('Master Admin accounts can only log in on the main domain.')
+          }
+        } else {
+          // 2. Tenant isolation verification
+          if (!user.organization) {
+            throw new Error('This account is not associated with any organization.')
+          }
+          if (user.organization.subdomain !== subdomain) {
+            throw new Error(`This account does not belong to the ${subdomain || 'root'} tenant space.`)
+          }
+          if (user.organization.subscriptionStatus !== 'ACTIVE') {
+            throw new Error('This organization subscription is currently suspended or unpaid.')
+          }
         }
 
         // Verify password
-        const isValid = await bcrypt.compare(credentials.password, user.password)
+        if (!user.password) {
+          throw new Error('Please sign in using Google Auth.')
+        }
 
+        const isValid = await bcrypt.compare(credentials.password, user.password)
         if (!isValid) {
           throw new Error('Incorrect password')
         }
@@ -44,6 +85,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          organizationId: user.organizationId,
         }
       },
     }),
@@ -55,14 +97,18 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
+        token.role = (user as any).role
+        token.organizationId = (user as any).organizationId
       }
 
-      // Check onboarding status dynamically if it's new, or if the user is still in the onboarding phase
-      if (token.id && (token.needsOnboarding === undefined || token.needsOnboarding === true)) {
+      // Populate onboarding status and check tenant data
+      if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
           select: {
             role: true,
+            organizationId: true,
+            organization: { select: { subdomain: true } },
             doctorProfile: { select: { id: true } },
             patientProfile: { select: { id: true } },
           },
@@ -70,7 +116,14 @@ export const authOptions: NextAuthOptions = {
 
         if (dbUser) {
           token.role = dbUser.role
-          token.needsOnboarding = !dbUser.doctorProfile && !dbUser.patientProfile
+          token.organizationId = dbUser.organizationId
+          token.tenantSubdomain = dbUser.organization?.subdomain || null
+          
+          if (dbUser.role === 'MASTER_ADMIN') {
+            token.needsOnboarding = false
+          } else {
+            token.needsOnboarding = !dbUser.doctorProfile && !dbUser.patientProfile
+          }
         } else {
           token.needsOnboarding = true
         }
@@ -83,6 +136,8 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.role = token.role as any
         session.user.needsOnboarding = token.needsOnboarding as boolean
+        session.user.organizationId = token.organizationId as string
+        session.user.tenantSubdomain = token.tenantSubdomain as string
       }
       return session
     },

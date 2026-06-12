@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Calendar, User, Activity, AlertTriangle, ArrowLeft } from 'lucide-react'
+import { Calendar, User, Activity, AlertTriangle, ArrowLeft, Clock, IndianRupee } from 'lucide-react'
 import Link from 'next/link'
 
 const SPECIALTIES = [
@@ -51,6 +51,8 @@ function BookingContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  const [recommendedDocId, setRecommendedDocId] = useState<string | null>(null)
+
   // Fetch doctors whenever selected specialty changes
   useEffect(() => {
     async function fetchDoctors() {
@@ -72,6 +74,54 @@ function BookingContent() {
 
     fetchDoctors()
   }, [specialty])
+
+  // Calculate AI Recommendation Match
+  useEffect(() => {
+    if (doctors.length === 0) {
+      setRecommendedDocId(null)
+      return
+    }
+
+    if (!triageSummary) {
+      // Default to doctor with fastest checkup speed if no symptom details
+      const fastest = [...doctors].sort((a, b) => (a.avgCheckupSpeed || 15) - (b.avgCheckupSpeed || 15))[0]
+      const recommendedId = fastest?.id || doctors[0].id
+      setRecommendedDocId(recommendedId)
+      setSelectedDoctorId(recommendedId)
+      return
+    }
+
+    let bestDocId = doctors[0].id
+    let maxScore = -1
+    const keywords = triageSummary.toLowerCase().split(/\s+/)
+
+    doctors.forEach((doc) => {
+      let score = 0
+      const bioText = (doc.bio || '').toLowerCase()
+      const specialtyText = (doc.specialty || '').toLowerCase()
+      const nameText = (doc.user?.name || '').toLowerCase()
+
+      keywords.forEach((word) => {
+        if (word.length > 3) {
+          if (bioText.includes(word)) score += 3
+          if (specialtyText.includes(word)) score += 1
+          if (nameText.includes(word)) score += 1
+        }
+      })
+
+      // Bias for faster speed if score is tied
+      score += (100 - (doc.avgCheckupSpeed || 15)) * 0.01
+
+      if (score > maxScore) {
+        maxScore = score
+        bestDocId = doc.id
+      }
+    })
+
+    setRecommendedDocId(bestDocId)
+    setSelectedDoctorId(bestDocId)
+
+  }, [doctors, triageSummary])
 
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,7 +172,7 @@ function BookingContent() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto z-10 space-y-6">
+    <div className="w-full max-w-3xl mx-auto z-10 space-y-6">
       <div className="flex items-center space-x-2">
         <Link href="/patient/dashboard" className="text-slate-400 hover:text-white transition-colors">
           <Button variant="ghost" size="sm" className="px-2">
@@ -139,11 +189,11 @@ function BookingContent() {
             <CardTitle>Schedule an Appointment</CardTitle>
           </div>
           <CardDescription>
-            Choose a specialty and doctor, select a time slot, and confirm your booking.
+            Choose a specialty, review doctor profiles, select a slot, and confirm your booking.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleBook}>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-6">
             {error && (
               <div className="p-3 text-sm rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
                 {error}
@@ -156,50 +206,84 @@ function BookingContent() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="specialty">Medical Specialty</Label>
-                <Select
-                  id="specialty"
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  disabled={submitting || success}
-                >
-                  {SPECIALTIES.map((spec) => (
-                    <option key={spec} value={spec} className="bg-slate-900 text-slate-100">
-                      {spec}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="specialty">Medical Specialty Department</Label>
+              <Select
+                id="specialty"
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                disabled={submitting || success}
+              >
+                {SPECIALTIES.map((spec) => (
+                  <option key={spec} value={spec} className="bg-slate-900 text-slate-100">
+                    {spec}
+                  </option>
+                ))}
+              </Select>
+            </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="doctor">Select Doctor</Label>
-                {loadingDoctors ? (
-                  <div className="h-11 rounded-lg bg-slate-900/40 border border-slate-700/80 flex items-center px-4">
-                    <Activity className="h-4 w-4 text-violet-500 animate-spin mr-2" />
-                    <span className="text-sm text-slate-400">Loading doctors...</span>
-                  </div>
-                ) : doctors.length === 0 ? (
-                  <div className="h-11 rounded-lg bg-slate-900/40 border border-yellow-500/20 text-yellow-500/80 flex items-center px-4 text-sm">
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    No doctors available in this specialty.
-                  </div>
-                ) : (
-                  <Select
-                    id="doctor"
-                    value={selectedDoctorId}
-                    onChange={(e) => setSelectedDoctorId(e.target.value)}
-                    disabled={submitting || success}
-                  >
-                    {doctors.map((doc) => (
-                      <option key={doc.id} value={doc.id} className="bg-slate-900 text-slate-100">
-                        {doc.user.name}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </div>
+            {/* Doctor Selection Grid */}
+            <div className="space-y-3">
+              <Label>Select Your Doctor</Label>
+              {loadingDoctors ? (
+                <div className="h-32 rounded-xl bg-slate-900/40 border border-slate-700/80 flex items-center justify-center">
+                  <Activity className="h-6 w-6 text-violet-500 animate-spin mr-2" />
+                  <span className="text-sm text-slate-400">Retrieving department specialists...</span>
+                </div>
+              ) : doctors.length === 0 ? (
+                <div className="h-20 rounded-xl bg-slate-900/40 border border-yellow-500/20 text-yellow-500/80 flex items-center justify-center text-sm p-4">
+                  <AlertTriangle className="h-5 w-5 mr-2 shrink-0" />
+                  No doctors currently registered in the {specialty} department.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {doctors.map((doc) => {
+                    const isSelected = selectedDoctorId === doc.id
+                    const isRecommended = recommendedDocId === doc.id
+                    return (
+                      <div
+                        key={doc.id}
+                        onClick={() => setSelectedDoctorId(doc.id)}
+                        className={`relative rounded-xl p-4 border cursor-pointer select-none transition-all flex flex-col justify-between min-h-[160px] ${
+                          isSelected
+                            ? 'bg-violet-600/10 border-violet-500 shadow-lg shadow-violet-500/10 scale-[1.01]'
+                            : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 hover:bg-slate-900/80'
+                        }`}
+                      >
+                        {isRecommended && (
+                          <div className="absolute top-2.5 right-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-[10px] font-bold px-2 py-0.5 rounded-full text-white shadow-md flex items-center gap-0.5 border border-emerald-500/30">
+                            <Activity className="w-3 h-3 animate-pulse" />
+                            Recommended Match
+                          </div>
+                        )}
+                        
+                        <div className="space-y-2 pr-24">
+                          <h4 className="font-bold text-white text-base flex items-center gap-1.5">
+                            {doc.user?.name || 'Dr. Practitioner'}
+                          </h4>
+                          <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-semibold tracking-wide border border-slate-700 uppercase">
+                            {doc.specialty}
+                          </span>
+                          <p className="text-xs text-slate-400 line-clamp-2 italic pt-1">
+                            {doc.bio || 'No biography details provided.'}
+                          </p>
+                        </div>
+
+                        <div className="border-t border-slate-800/80 my-3 pt-3 flex justify-between items-center text-xs font-semibold">
+                          <div className="flex items-center gap-1 text-slate-400">
+                            <Clock className="w-4 h-4 text-violet-400" />
+                            <span>{doc.avgCheckupSpeed || 15} mins speed</span>
+                          </div>
+                          <div className="text-emerald-400 font-bold flex items-center gap-0.5">
+                            <IndianRupee className="w-4 h-4 text-emerald-400 inline" />
+                            <span>{doc.consultationFee || 500} fee</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -219,14 +303,14 @@ function BookingContent() {
               <Label htmlFor="triage">Triage Summary / Symptoms Description</Label>
               <textarea
                 id="triage"
-                rows={4}
-                className="w-full rounded-lg bg-slate-900/60 border border-slate-700/80 px-4 py-2.5 text-slate-100 placeholder-slate-500 transition-all duration-200 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:pointer-events-none disabled:opacity-50"
+                rows={3}
+                className="w-full rounded-lg bg-slate-900/60 border border-slate-700/80 px-4 py-2 text-slate-100 placeholder-slate-500 transition-all duration-200 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:pointer-events-none disabled:opacity-50 text-sm"
                 placeholder="Briefly describe your symptoms or write any notes for the doctor..."
                 value={triageSummary}
                 onChange={(e) => setTriageSummary(e.target.value)}
                 disabled={submitting || success}
               />
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] text-slate-400">
                 You can carry over your AI symptom triage summary here so the doctor can review it before the visit.
               </p>
             </div>
@@ -235,7 +319,7 @@ function BookingContent() {
             <Button
               type="submit"
               variant="primary"
-              className="w-full"
+              className="w-full h-11 text-sm font-semibold active:scale-[0.98]"
               disabled={submitting || success || doctors.length === 0}
             >
               {submitting ? 'Confirming Booking...' : 'Confirm Appointment'}

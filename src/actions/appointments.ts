@@ -6,10 +6,18 @@ import { authOptions } from '@/lib/auth'
 import { sendBookingEmails } from '@/lib/mail'
 
 export async function getDoctorsBySpecialty(specialty: string) {
+  const session = await getServerSession(authOptions)
+  if (!session || !session.user.organizationId) {
+    return { success: false, message: 'Unauthorized. Organization context missing.', doctors: [] }
+  }
+
   try {
     const doctors = await prisma.doctorProfile.findMany({
       where: {
         specialty,
+        user: {
+          organizationId: session.user.organizationId,
+        },
       },
       include: {
         user: {
