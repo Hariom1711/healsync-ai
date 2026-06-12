@@ -8,16 +8,13 @@ export async function registerUser(prevState: any, formData: FormData) {
   const name = formData.get('name') as string
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const role = formData.get('role') as string
-  const specialty = formData.get('specialty') as string
+  const subdomain = formData.get('subdomain') as string
 
   // Run Zod schema validation
   const validatedFields = RegisterSchema.safeParse({
     name,
     email,
     password,
-    role,
-    specialty: role === 'DOCTOR' ? specialty : undefined,
   })
 
   if (!validatedFields.success) {
@@ -30,7 +27,26 @@ export async function registerUser(prevState: any, formData: FormData) {
   const data = validatedFields.data
 
   try {
-    // Check if user already exists
+    // 1. Resolve organization by subdomain
+    if (!subdomain) {
+      return {
+        success: false,
+        message: 'Organization context is missing.',
+      }
+    }
+
+    const org = await prisma.organization.findUnique({
+      where: { subdomain: subdomain.toLowerCase().trim() },
+    })
+
+    if (!org) {
+      return {
+        success: false,
+        message: 'This hospital organization does not exist.',
+      }
+    }
+
+    // 2. Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
     })
@@ -42,37 +58,22 @@ export async function registerUser(prevState: any, formData: FormData) {
       }
     }
 
-    // Hash the password
+    // 3. Hash the password
     const hashedPassword = await bcrypt.hash(data.password, 10)
 
-    // Insert user and relation tables based on role
-    if (data.role === 'PATIENT') {
-      await prisma.user.create({
-        data: {
-          name: data.name,
-          email: data.email,
-          password: hashedPassword,
-          role: 'PATIENT',
-          patientProfile: {
-            create: {},
-          },
+    // 4. Insert user and patient profile linked to the organization
+    await prisma.user.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        password: hashedPassword,
+        role: 'PATIENT',
+        organizationId: org.id,
+        patientProfile: {
+          create: {},
         },
-      })
-    } else if (data.role === 'DOCTOR') {
-      await prisma.user.create({
-        data: {
-          name: data.name,
-          email: data.email,
-          password: hashedPassword,
-          role: 'DOCTOR',
-          doctorProfile: {
-            create: {
-              specialty: data.specialty || 'General Medicine',
-            },
-          },
-        },
-      })
-    }
+      },
+    })
 
     return {
       success: true,

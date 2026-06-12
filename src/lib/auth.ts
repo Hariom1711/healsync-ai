@@ -119,7 +119,7 @@ export const authOptions: NextAuthOptions = {
           token.organizationId = dbUser.organizationId
           token.tenantSubdomain = dbUser.organization?.subdomain || null
           
-          if (dbUser.role === 'MASTER_ADMIN') {
+          if (dbUser.role === 'MASTER_ADMIN' || dbUser.role === 'ORG_ADMIN') {
             token.needsOnboarding = false
           } else {
             token.needsOnboarding = !dbUser.doctorProfile && !dbUser.patientProfile

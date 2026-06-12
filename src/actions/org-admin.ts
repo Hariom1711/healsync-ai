@@ -64,6 +64,8 @@ export async function onboardDoctor(data: {
   email: string
   passwordHash: string
   specialty: string
+  degree: string
+  experience: number
   bio?: string
   consultationFee: number
   avgCheckupSpeed: number
@@ -100,6 +102,8 @@ export async function onboardDoctor(data: {
         data: {
           userId: user.id,
           specialty: data.specialty,
+          degree: data.degree,
+          experience: data.experience,
           bio: data.bio || '',
           consultationFee: data.consultationFee,
           avgCheckupSpeed: data.avgCheckupSpeed,

@@ -49,6 +49,8 @@ model DoctorProfile {
   userId          String          @unique
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   specialty       String
+  degree          String?
+  experience      Int             @default(0) // years of experience
   bio             String?
   availability    Json? // e.g. { "monday": ["09:00-12:00", "14:00-17:00"] }
   avgCheckupSpeed Int             @default(15) // in minutes

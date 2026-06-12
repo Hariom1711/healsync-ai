@@ -258,12 +258,24 @@ function BookingContent() {
                         )}
                         
                         <div className="space-y-2 pr-24">
-                          <h4 className="font-bold text-white text-base flex items-center gap-1.5">
+                          <h4 className="font-bold text-white text-base flex flex-wrap items-center gap-1.5">
                             {doc.user?.name || 'Dr. Practitioner'}
+                            {doc.degree && (
+                              <span className="text-xs font-medium text-violet-300 bg-violet-500/10 px-1.5 py-0.5 rounded">
+                                {doc.degree}
+                              </span>
+                            )}
                           </h4>
-                          <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-semibold tracking-wide border border-slate-700 uppercase">
-                            {doc.specialty}
-                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-semibold tracking-wide border border-slate-700 uppercase">
+                              {doc.specialty}
+                            </span>
+                            {doc.experience > 0 && (
+                              <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-semibold tracking-wide border border-slate-700 uppercase">
+                                {doc.experience} Yrs Exp
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-slate-400 line-clamp-2 italic pt-1">
                             {doc.bio || 'No biography details provided.'}
                           </p>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
@@ -8,28 +8,20 @@ import { registerUser } from '@/actions/auth'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Activity } from 'lucide-react'
 
-const SPECIALTIES = [
-  'General Medicine',
-  'Cardiology',
-  'Dermatology',
-  'Pediatrics',
-  'Neurology',
-  'Gastroenterology',
-  'Orthopedics',
-  'Psychiatry',
-]
+interface RegisterPageProps {
+  params: Promise<{ subdomain: string }>
+}
 
-export default function RegisterPage() {
+export default function RegisterPage({ params }: RegisterPageProps) {
   const router = useRouter()
+  const { subdomain } = use(params)
+  
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT')
-  const [specialty, setSpecialty] = useState('General Medicine')
   
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [message, setMessage] = useState<string | null>(null)
@@ -46,10 +38,7 @@ export default function RegisterPage() {
     formData.append('name', name)
     formData.append('email', email)
     formData.append('password', password)
-    formData.append('role', role)
-    if (role === 'DOCTOR') {
-      formData.append('specialty', specialty)
-    }
+    formData.append('subdomain', subdomain)
 
     try {
       const res = await registerUser(null, formData)
@@ -87,13 +76,15 @@ export default function RegisterPage() {
             <Activity className="h-6 w-6 text-white animate-pulse" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">HealSync AI</h1>
-          <p className="text-sm text-slate-400 mt-1">Smart Healthcare Booking & Scribing</p>
+          <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-semibold">
+            {subdomain} Clinic Portal
+          </p>
         </div>
 
         <Card className="border-slate-800/80 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle>Create an Account</CardTitle>
-            <CardDescription>Join our platform as a patient or medical professional</CardDescription>
+            <CardTitle>Create a Patient Account</CardTitle>
+            <CardDescription>Register to book appointments, consult specialists, and analyze symptoms.</CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
@@ -152,43 +143,10 @@ export default function RegisterPage() {
                 />
                 {errors.password && <p className="text-xs text-red-400">{errors.password[0]}</p>}
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label htmlFor="role">I am a...</Label>
-                  <Select
-                    id="role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as 'PATIENT' | 'DOCTOR')}
-                    disabled={loading || success}
-                  >
-                    <option value="PATIENT" className="bg-slate-900 text-slate-100">Patient</option>
-                    <option value="DOCTOR" className="bg-slate-900 text-slate-100">Doctor</option>
-                  </Select>
-                </div>
-
-                {role === 'DOCTOR' && (
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1 animate-fadeIn">
-                    <Label htmlFor="specialty">Medical Specialty</Label>
-                    <Select
-                      id="specialty"
-                      value={specialty}
-                      onChange={(e) => setSpecialty(e.target.value)}
-                      disabled={loading || success}
-                    >
-                      {SPECIALTIES.map((spec) => (
-                        <option key={spec} value={spec} className="bg-slate-900 text-slate-100">
-                          {spec}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                )}
-              </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
               <Button type="submit" variant="primary" className="w-full" disabled={loading || success}>
-                {loading ? 'Creating Account...' : 'Sign Up'}
+                {loading ? 'Creating Account...' : 'Sign Up as Patient'}
               </Button>
 
               <div className="relative w-full flex items-center justify-center py-1">

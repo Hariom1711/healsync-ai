@@ -50,6 +50,8 @@ export default function OrgAdminClient({ initialData, subdomain, adminName }: Or
   const [docEmail, setDocEmail] = useState('')
   const [docPassword, setDocPassword] = useState('')
   const [docSpecialty, setDocSpecialty] = useState(SPECIALTIES[0])
+  const [docDegree, setDocDegree] = useState('')
+  const [docExperience, setDocExperience] = useState('0')
   const [docBio, setDocBio] = useState('')
   const [docFee, setDocFee] = useState('500')
   const [docSpeed, setDocSpeed] = useState('15')
@@ -73,6 +75,9 @@ export default function OrgAdminClient({ initialData, subdomain, adminName }: Or
     const speedNum = parseInt(docSpeed)
     if (isNaN(speedNum) || speedNum <= 0) return setError('Average Checkup Speed must be positive')
 
+    const expNum = parseInt(docExperience)
+    if (isNaN(expNum) || expNum < 0) return setError('Years of Experience must be 0 or positive')
+
     setLoading(true)
 
     try {
@@ -81,6 +86,8 @@ export default function OrgAdminClient({ initialData, subdomain, adminName }: Or
         email: docEmail,
         passwordHash: docPassword,
         specialty: docSpecialty,
+        degree: docDegree,
+        experience: expNum,
         bio: docBio,
         consultationFee: feeNum,
         avgCheckupSpeed: speedNum,
@@ -99,6 +106,8 @@ export default function OrgAdminClient({ initialData, subdomain, adminName }: Or
           createdAt: new Date(),
           doctorProfile: {
             specialty: docSpecialty,
+            degree: docDegree,
+            experience: expNum,
             bio: docBio,
             consultationFee: feeNum,
             avgCheckupSpeed: speedNum,
@@ -110,6 +119,8 @@ export default function OrgAdminClient({ initialData, subdomain, adminName }: Or
         setDocName('')
         setDocEmail('')
         setDocPassword('')
+        setDocDegree('')
+        setDocExperience('0')
         setDocBio('')
         setDocFee('500')
         setDocSpeed('15')
@@ -271,6 +282,33 @@ export default function OrgAdminClient({ initialData, subdomain, adminName }: Or
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
+                    <Label htmlFor="degree" className="text-slate-300 text-xs">Degree / Qualifications</Label>
+                    <Input
+                      id="degree"
+                      type="text"
+                      required
+                      placeholder="e.g. MBBS, MD"
+                      className="h-9 text-sm"
+                      value={docDegree}
+                      onChange={(e) => setDocDegree(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="experience" className="text-slate-300 text-xs">Experience (years)</Label>
+                    <Input
+                      id="experience"
+                      type="number"
+                      required
+                      className="h-9 text-sm"
+                      value={docExperience}
+                      onChange={(e) => setDocExperience(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
                     <Label htmlFor="fee" className="text-slate-300 text-xs">Consultation Fee (₹)</Label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
@@ -365,14 +403,20 @@ export default function OrgAdminClient({ initialData, subdomain, adminName }: Or
                         return (
                           <tr key={doc.id} className="hover:bg-white/5 transition-all">
                             <td className="py-4 px-4">
-                              <div className="font-semibold text-white">{doc.name}</div>
+                              <div className="font-semibold text-white">
+                                {doc.name}
+                                {profile.degree && <span className="text-xs text-slate-400 font-medium ml-1.5">({profile.degree})</span>}
+                              </div>
                               <div className="text-xs text-slate-500 font-mono">{doc.email}</div>
-                              {profile.bio && (
-                                <div className="text-[11px] text-slate-400 mt-1 max-w-xs truncate flex items-center gap-1">
-                                  <FileText className="w-3.5 h-3.5 text-slate-500 inline shrink-0" />
-                                  {profile.bio}
-                                </div>
-                              )}
+                              <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
+                                <span>Exp: {profile.experience || 0} years</span>
+                                {profile.bio && (
+                                  <>
+                                    <span className="text-slate-700">•</span>
+                                    <span className="truncate max-w-[200px]" title={profile.bio}>{profile.bio}</span>
+                                  </>
+                                )}
+                              </div>
                             </td>
                             <td className="py-4 px-4 font-medium">
                               <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-xs border border-blue-500/20 font-semibold">
