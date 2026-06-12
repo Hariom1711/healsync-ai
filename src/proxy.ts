@@ -16,7 +16,8 @@ export function proxy(req: NextRequest) {
   }
 
   // Determine the subdomain
-  const baseDomains = ['healsync-ai-six.vercel.app', 'localhost:3000']
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost:3000'
+  const baseDomains = [rootDomain, 'healsync-ai-six.vercel.app', 'localhost:3000']
   let subdomain = ''
 
   for (const base of baseDomains) {

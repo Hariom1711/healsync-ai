@@ -6,7 +6,8 @@ import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
 function getSubdomainFromHost(host: string) {
-  const baseDomains = ['healsync-ai-six.vercel.app', 'localhost:3000']
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost:3000'
+  const baseDomains = [rootDomain, 'healsync-ai-six.vercel.app', 'localhost:3000']
   let subdomain = ''
 
   for (const base of baseDomains) {
