@@ -27,6 +27,8 @@ export default function OnboardingPage() {
     } else if (status === 'authenticated' && session?.user && !session.user.needsOnboarding) {
       if (session.user.role === 'DOCTOR') {
         router.push('/doctor/dashboard')
+      } else if (session.user.role === 'ORG_ADMIN') {
+        router.push('/admin')
       } else {
         router.push('/patient/dashboard')
       }

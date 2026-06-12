@@ -15,6 +15,8 @@ export default async function TenantHome() {
 
   if (session.user.role === "DOCTOR") {
     redirect("/doctor/dashboard")
+  } else if (session.user.role === "ORG_ADMIN") {
+    redirect("/admin")
   } else {
     redirect("/patient/dashboard")
   }

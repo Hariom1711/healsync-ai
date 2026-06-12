@@ -39,6 +39,8 @@ export default function LoginPage() {
 
         if (session?.user?.role === 'DOCTOR') {
           router.push('/doctor/dashboard')
+        } else if (session?.user?.role === 'ORG_ADMIN') {
+          router.push('/admin')
         } else {
           router.push('/patient/dashboard')
         }
