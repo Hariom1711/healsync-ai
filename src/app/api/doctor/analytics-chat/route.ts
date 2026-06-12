@@ -81,7 +81,7 @@ ${analyticsRes.trends.prescriptions.map((p: any) => `- **${p.name}** (prescribed
     // 4. Live Llama 3 70B Call
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
     const chatResponse = await groq.chat.completions.create({
-      model: 'llama3-70b-8192',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map((m: any) => ({
